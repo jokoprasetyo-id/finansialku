@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Liquid Superapp V14</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body {
+            background-color: #f2f2f7;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #1c1c1e;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        ::-webkit-scrollbar { display: none; }
+
+        .ambient-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: #ffffff; }
+        .orb { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.5; animation: float 20s infinite alternate; }
+        .orb-1 { top: -10%; left: -10%; width: 60vw; height: 60vw; background: #d1d1ff; }
+        .orb-2 { bottom: -10%; right: -10%; width: 50vw; height: 50vw; background: #ffd1e8; animation-delay: -5s; }
+
+        @keyframes float { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(15%, 10%) scale(1.1); } }
+
+        .ios-glass {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: saturate(180%) blur(25px);
+            -webkit-backdrop-filter: saturate(180%) blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.03);
+        }
+        
+        .ios-input {
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            transition: all 0.2s ease;
+        }
+        .ios-input:focus { border-color: #007aff; outline: none; background: rgba(255, 255, 255, 0.9); }
+
+        .btn-press { transition: transform 0.1s ease; }
+        .btn-press:active { transform: scale(0.92); }
+        
+        .tab-content { display: none; animation: slideUp 0.3s ease-out; }
+        .tab-content.active { display: block; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.15); backdrop-filter: blur(15px); z-index: 100; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+        .modal.active { display: flex; animation: fadeIn 0.2s; }
+        @keyframes fadeIn { from {opacity:0; transform:scale(0.95);} to {opacity:1; transform:scale(1);} }
+    </style>
+</head>
+<body class="flex justify-center pb-32">
+
+    <div class="ambient-bg"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+
+    <div class="w-full max-w-md min-h-screen flex flex-col relative">
+
+        <div class="ios-glass p-6 rounded-b-[2.5rem] sticky top-0 z-20">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h1 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Net Worth</h1>
+                    <p class="text-3xl font-bold text-gray-900 tracking-tight" id="nwDisplay">Rp 0</p>
+                </div>
+                <div class="h-10 w-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                    <i class="fas fa-fingerprint text-blue-500 text-lg"></i>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between bg-white/40 rounded-full p-1 border border-white">
+                <button onclick="changeMonth(-1)" class="btn-press h-8 w-8 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-500"><i class="fas fa-chevron-left text-xs"></i></button>
+                <div class="text-xs font-bold text-gray-800" id="monthDisplay">Bulan Tahun</div>
+                <button onclick="changeMonth(1)" class="btn-press h-8 w-8 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-500"><i class="fas fa-chevron-right text-xs"></i></button>
+            </div>
+        </div>
+
+        <div id="tab-dashboard" class="tab-content active p-5">
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="ios-glass p-4 rounded-[1.5rem]">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Inflow</p>
+                    <p class="text-lg font-bold text-green-600 mt-1" id="inSummary">Rp 0</p>
+                </div>
+                <div class="ios-glass p-4 rounded-[1.5rem]">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Outflow</p>
+                    <p class="text-lg font-bold text-red-500 mt-1" id="outSummary">Rp 0</p>
+                </div>
+            </div>
+            <div class="ios-glass p-6 rounded-[2rem] mb-6">
+                <h2 class="text-center text-[11px] font-bold text-gray-400 uppercase mb-4 tracking-widest">All Assets Allocation</h2>
+                <div class="relative h-48 w-full"><canvas id="allocChart"></canvas></div>
+            </div>
+        </div>
+
+        <div id="tab-porto" class="tab-content p-5">
+            <div class="mb-8">
+                <div class="flex justify-between items-center mb-4 pl-2">
+                    <h2 class="text-xs font-bold text-gray-500 tracking-widest uppercase">Akun & Saldo</h2>
+                    <button onclick="openModal('akunModal')" class="btn-press bg-white h-8 w-8 rounded-full text-blue-600 shadow-sm border border-white flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="akunList" class="space-y-3"></div>
+            </div>
+            <div>
+                <div class="flex justify-between items-center mb-4 pl-2">
+                    <h2 class="text-xs font-bold text-gray-500 tracking-widest uppercase">Portofolio</h2>
+                    <button onclick="openModal('investModal')" class="btn-press bg-white h-8 w-8 rounded-full text-purple-600 shadow-sm border border-white flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="investList" class="space-y-4"></div>
+            </div>
+        </div>
+
+        <div id="tab-transaksi" class="tab-content p-5">
+            <form id="txForm" class="space-y-3 ios-glass p-6 rounded-[2rem] mb-8 border border-white relative">
+                <div id="txEditBadge" class="hidden absolute top-4 right-6 bg-[#007aff] text-white text-[9px] px-3 py-1 rounded-full font-bold shadow-md animate-pulse tracking-widest">EDIT MODE</div>
+                
+                <input type="date" id="txDate" required class="ios-input p-3.5 rounded-xl w-full text-sm font-medium text-gray-700">
+                <input type="text" id="txDesc" placeholder="Keterangan" required class="ios-input p-3.5 rounded-xl w-full text-sm">
+                <input type="text" id="txAmount" placeholder="Nominal" required oninput="formatMoneyInput(this)" class="ios-input p-3.5 rounded-xl w-full text-sm font-bold">
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <select id="txType" onchange="handleTxType()" class="ios-input p-3.5 rounded-xl text-xs font-bold text-gray-700">
+                        <option value="pengeluaran">Pengeluaran</option>
+                        <option value="pemasukan">Pemasukan</option>
+                        <option value="bayar_bill">Bayar Tagihan</option>
+                        <option value="bayar_utang">Bayar Cicilan</option>
+                        <option value="beli_invest">Beli Aset</option>
+                        <option value="jual_invest">Jual Aset</option>
+                    </select>
+                    <select id="txAkun" required class="ios-input p-3.5 rounded-xl text-xs"><option value="">-- Akun --</option></select>
+                </div>
+                <select id="txRef" class="hidden ios-input p-3.5 rounded-xl w-full text-xs mt-1"></select>
+                
+                <div class="flex gap-2 pt-2">
+                    <button type="button" id="btnCancelTx" onclick="cancelTx()" class="btn-press hidden flex-1 bg-white/50 text-gray-500 font-bold py-3.5 rounded-xl text-xs border border-white">BATAL</button>
+                    <button type="submit" id="btnSubmitTx" class="btn-press flex-[2] bg-blue-600 text-white font-bold py-3.5 rounded-xl text-xs shadow-lg tracking-widest">SIMPAN</button>
+                </div>
+            </form>
+
+            <h2 class="text-xs font-bold text-gray-500 tracking-widest uppercase mb-4 pl-2">Log Transaksi</h2>
+            <ul id="txList" class="space-y-3 pb-6"></ul>
+        </div>
+
+        <div id="tab-budget" class="tab-content p-5">
+            <div class="mb-8">
+                <div class="flex justify-between items-center mb-4 pl-2">
+                    <h2 class="text-xs font-bold text-gray-500 tracking-widest uppercase">Anggaran</h2>
+                    <button onclick="openModal('budgetModal')" class="btn-press bg-white h-8 w-8 rounded-full text-blue-600 shadow-sm border border-white flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="budgetList" class="space-y-3"></div>
+            </div>
+            
+            <div class="mb-8">
+                <div class="flex justify-between items-center mb-4 pl-2">
+                    <h2 class="text-xs font-bold text-gray-500 tracking-widest uppercase">Tagihan / Bills</h2>
+                    <button onclick="openModal('billModal')" class="btn-press bg-white h-8 w-8 rounded-full text-emerald-600 shadow-sm border border-white flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                </div>
+                <div id="billList" class="space-y-3"></div>
+            </div>
+
+            <div>
+                <div class="flex justify-between items-center mb-4 pl-2">
+                    <h2 class="text-xs font-bold text-gray-500 tracking-widest uppercase">Kewajiban / Utang</h2>
+                    <button onclick="openModal('utangModal')" class="btn-press bg-white h-8 w-8 rounded-full text-red-500 shadow-sm border border-white flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                </div>
+                <ul id="utangList" class="space-y-3"></ul>
+            </div>
+        </div>
+
+        <div id="tab-fire" class="tab-content p-5">
+            <div class="flex justify-between items-center mb-4 pl-2">
+                <h2 class="text-xs font-bold text-gray-500 tracking-widest uppercase">FIRE Projection</h2>
+                <button onclick="openModal('fireModal')" class="btn-press bg-white h-8 w-8 rounded-full text-orange-500 shadow-sm border border-white flex items-center justify-center"><i class="fas fa-cog"></i></button>
+            </div>
+            
+            <div class="ios-glass p-6 rounded-[2rem] mb-6 relative overflow-hidden border border-white">
+                <div class="absolute -right-10 -top-10 w-32 h-32 bg-orange-400 rounded-full opacity-10 blur-2xl"></div>
+                
+                <p class="text-[10px] font-bold text-gray-400 tracking-widest uppercase mb-1">Target Dana Pensiun</p>
+                <p class="text-2xl font-bold text-gray-900 mb-4" id="fireTargetDisp">Rp 0</p>
+                
+                <div class="border-t border-gray-200/60 pt-4 flex justify-between items-end">
+                    <div>
+                        <p class="text-[10px] font-bold text-gray-400 tracking-widest uppercase mb-1">Proyeksi Saldo (Usia <span id="fireRetireAgeDisp">55</span>)</p>
+                        <p class="text-xl font-bold text-blue-600" id="fireProjectedDisp">Rp 0</p>
+                    </div>
+                    <div id="fireStatus" class="text-[10px] font-bold px-2 py-1 rounded-lg"></div>
+                </div>
+            </div>
+
+            <div class="ios-glass p-5 rounded-[2rem] mb-6 border border-white">
+                <h2 class="text-center text-[11px] font-bold text-gray-400 uppercase mb-4 tracking-widest">Grafik Pertumbuhan</h2>
+                <div class="relative h-56 w-full"><canvas id="fireChart"></canvas></div>
+                <p class="text-center text-[9px] text-gray-400 mt-3">*Kalkulasi compound interest tahunan menyesuaikan inflasi</p>
+            </div>
+        </div>
+
+        <div id="akunModal" class="modal"><div class="ios-glass p-8 rounded-[2.5rem] w-full max-w-xs border border-white shadow-2xl"><h3 class="font-bold mb-4 text-center">Setup Akun</h3><input type="text" id="aName" placeholder="Nama Akun" class="ios-input p-4 rounded-xl mb-3 text-sm w-full"><select id="aType" class="ios-input p-4 rounded-xl mb-3 text-sm w-full"><option value="bank">Bank</option><option value="ewallet">E-Wallet</option><option value="cash">Tunai</option></select><input type="text" id="aBal" placeholder="Saldo Awal" oninput="formatMoneyInput(this)" class="ios-input p-4 rounded-xl mb-6 text-sm w-full"><div class="flex gap-2"><button onclick="closeModals()" class="btn-press flex-1 py-3 text-gray-400 font-bold text-sm">BATAL</button><button onclick="saveAkun()" class="btn-press flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm">SIMPAN</button></div></div></div>
+        
+        <div id="investModal" class="modal"><div class="ios-glass p-8 rounded-[2.5rem] w-full max-w-xs border border-white shadow-2xl"><h3 class="font-bold mb-4 text-center">Setup Aset</h3><input type="text" id="iName" placeholder="Nama Aset" class="ios-input p-4 rounded-xl mb-3 text-sm w-full"><select id="iType" class="ios-input p-4 rounded-xl mb-3 text-sm w-full"><option value="emas">Emas</option><option value="rdpu">RDPU</option><option value="saham">Saham</option></select><input type="text" id="iModal" placeholder="Modal" oninput="formatMoneyInput(this)" class="ios-input p-4 rounded-xl mb-3 text-sm w-full"><input type="text" id="iCurrent" placeholder="Nilai Kini" oninput="formatMoneyInput(this)" class="ios-input p-4 rounded-xl mb-6 text-sm w-full"><div class="flex gap-2"><button onclick="closeModals()" class="btn-press flex-1 py-3 text-gray-400 font-bold text-sm">BATAL</button><button onclick="saveInvest()" class="btn-press flex-1 py-3 bg-purple-600 text-white rounded-xl font-bold text-sm">SIMPAN</button></div></div></div>
+
+        <div id="budgetModal" class="modal"><div class="ios-glass p-8 rounded-[2.5rem] w-full max-w-xs border border-white shadow-2xl"><h3 class="font-bold mb-4 text-center">Setup Anggaran</h3><input type="text" id="bName" placeholder="Kategori" class="ios-input p-4 rounded-xl mb-3 text-sm w-full"><input type="text" id="bLimit" placeholder="Batas" oninput="formatMoneyInput(this)" class="ios-input p-4 rounded-xl mb-6 text-sm w-full"><div class="flex gap-2"><button onclick="closeModals()" class="btn-press flex-1 py-3 text-gray-400 font-bold text-sm">BATAL</button><button onclick="saveBudget()" class="btn-press flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm">SIMPAN</button></div></div></div>
+
+        <div id="billModal" class="modal"><div class="ios-glass p-8 rounded-[2.5rem] w-full max-w-xs border border-white shadow-2xl"><h3 class="font-bold mb-4 text-center">Setup Tagihan</h3><input type="text" id="blName" placeholder="Nama Tagihan" class="ios-input p-4 rounded-xl mb-3 text-sm w-full"><input type="text" id="blAmount" placeholder="Nominal Tagihan" oninput="formatMoneyInput(this)" class="ios-input p-4 rounded-xl mb-3 text-sm w-full"><input type="text" id="blNote" placeholder="Catatan (Tgl JT)" class="ios-input p-4 rounded-xl mb-6 text-sm w-full"><div class="flex gap-2"><button onclick="closeModals()" class="btn-press flex-1 py-3 text-gray-400 font-bold text-sm">BATAL</button><button onclick="saveBill()" class="btn-press flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm">SIMPAN</button></div></div></div>
+        
+        <div id="utangModal" class="modal"><div class="ios-glass p-8 rounded-[2.5rem] w-full max-w-xs border border-white shadow-2xl"><h3 class="font-bold mb-4 text-center">Setup Utang</h3><input type="text" id="uName" placeholder="Kreditur" class="ios-input p-4 rounded-xl mb-3 text-sm w-full"><input type="text" id="uAmount" placeholder="Sisa Utang" oninput="formatMoneyInput(this)" class="ios-input p-4 rounded-xl mb-6 text-sm w-full"><div class="flex gap-2"><button onclick="closeModals()" class="btn-press flex-1 py-3 text-gray-400 font-bold text-sm">BATAL</button><button onclick="saveUtang()" class="btn-press flex-1 py-3 bg-red-500 text-white rounded-xl font-bold text-sm">SIMPAN</button></div></div></div>
+
+        <div id="marketModal" class="modal"><div class="ios-glass p-8 rounded-[2.5rem] w-full max-w-xs border border-white shadow-2xl"><h3 class="font-bold mb-2 text-center">Update Harga</h3><p class="text-[10px] text-gray-500 text-center mb-4" id="mNameDisp"></p><input type="text" id="mCurrent" placeholder="Nilai Terkini" oninput="formatMoneyInput(this)" class="ios-input p-4 rounded-xl mb-6 text-sm w-full"><div class="flex gap-2"><button onclick="closeModals()" class="btn-press flex-1 py-3 text-gray-400 font-bold text-sm">BATAL</button><button onclick="saveMarket()" class="btn-press flex-1 py-3 bg-green-500 text-white rounded-xl font-bold text-sm">SYNC</button></div></div></div>
+
+        <div id="fireModal" class="modal"><div class="ios-glass p-8 rounded-[2.5rem] w-full max-w-sm border border-white shadow-2xl h-[80vh] overflow-y-auto">
+            <h3 class="font-bold mb-4 text-center text-orange-500"><i class="fas fa-fire mr-2"></i>Parameter FIRE</h3>
+            <p class="text-[10px] text-gray-500 mb-1 pl-1">Usia Saat Ini</p>
+            <input type="number" id="fAge" placeholder="Usia" class="ios-input p-3.5 rounded-xl mb-3 text-sm w-full font-bold">
+            <p class="text-[10px] text-gray-500 mb-1 pl-1">Target Usia Pensiun</p>
+            <input type="number" id="fRetire" placeholder="Usia Pensiun" class="ios-input p-3.5 rounded-xl mb-3 text-sm w-full font-bold">
+            <p class="text-[10px] text-gray-500 mb-1 pl-1">Pengeluaran Bulanan (Saat Ini)</p>
+            <input type="text" id="fExpense" placeholder="Rp" oninput="formatMoneyInput(this)" class="ios-input p-3.5 rounded-xl mb-3 text-sm w-full">
+            <p class="text-[10px] text-gray-500 mb-1 pl-1">Rencana Nabung/Investasi per Bulan</p>
+            <input type="text" id="fSave" placeholder="Rp" oninput="formatMoneyInput(this)" class="ios-input p-3.5 rounded-xl mb-3 text-sm w-full">
+            <div class="grid grid-cols-2 gap-2 mb-6">
+                <div>
+                    <p class="text-[10px] text-gray-500 mb-1 pl-1">Asumsi Return (%)</p>
+                    <input type="number" id="fReturn" placeholder="%" class="ios-input p-3.5 rounded-xl text-sm w-full">
+                </div>
+                <div>
+                    <p class="text-[10px] text-gray-500 mb-1 pl-1">Asumsi Inflasi (%)</p>
+                    <input type="number" id="fInflation" placeholder="%" class="ios-input p-3.5 rounded-xl text-sm w-full">
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="closeModals()" class="btn-press flex-1 py-3 text-gray-400 font-bold text-sm">BATAL</button>
+                <button onclick="saveFireSettings()" class="btn-press flex-1 py-3 bg-orange-500 text-white rounded-xl font-bold text-sm">SIMPAN & HITUNG</button>
+            </div>
+        </div></div>
+
+        <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-[400px] ios-glass rounded-full px-4 py-3 flex justify-between items-center z-50 border border-white shadow-2xl">
+            <button onclick="switchTab('dashboard')" class="nav-btn flex-1 text-blue-600 transition-all duration-300 transform scale-110" data-target="dashboard"><i class="fas fa-home text-lg"></i></button>
+            <button onclick="switchTab('porto')" class="nav-btn flex-1 text-gray-400 transition-all duration-300" data-target="porto"><i class="fas fa-wallet text-lg"></i></button>
+            <button onclick="switchTab('transaksi')" class="nav-btn flex-1 text-gray-400 transition-all duration-300" data-target="transaksi"><i class="fas fa-plus-circle text-4xl text-blue-500 drop-shadow-md bg-white rounded-full leading-none"></i></button>
+            <button onclick="switchTab('budget')" class="nav-btn flex-1 text-gray-400 transition-all duration-300" data-target="budget"><i class="fas fa-chart-pie text-lg"></i></button>
+            <button onclick="switchTab('fire')" class="nav-btn flex-1 text-gray-400 transition-all duration-300" data-target="fire"><i class="fas fa-fire text-lg"></i></button>
+        </div>
+
+    </div>
+
+    <script>
+        const genId = () => '_' + Math.random().toString(36).substr(2, 9);
+        const fmt = (n) => new Intl.NumberFormat('id-ID').format(Math.round(n));
+        
+        function formatMoneyInput(el) {
+            let val = el.value.replace(/[^0-9]/g, '');
+            if(val === "") return el.value = "";
+            el.value = new Intl.NumberFormat('id-ID').format(val);
+        }
+        const parseRaw = (str) => Number(str.toString().replace(/[^0-9]/g, '')) || 0;
+
+        let filterDate = new Date();
+        const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        
+        // --- DATA BASE V14 ---
+        let txs = JSON.parse(localStorage.getItem('v14_txs')) || [];
+        let akuns = JSON.parse(localStorage.getItem('v14_akuns')) || [];
+        let invests = JSON.parse(localStorage.getItem('v14_invests')) || [];
+        let utangs = JSON.parse(localStorage.getItem('v14_utangs')) || [];
+        let budgets = JSON.parse(localStorage.getItem('v14_budgets')) || [];
+        let bills = JSON.parse(localStorage.getItem('v14_bills')) || [];
+        
+        // FIRE Default Settings 
+        let fireSettings = JSON.parse(localStorage.getItem('v14_fire')) || {
+            currentAge: 26, retireAge: 55, monthlyExpense: 2000000, 
+            monthlySave: 200000, returnRate: 7, inflationRate: 4
+        };
+        
+        let chartAlloc, chartFire, txEditId = null, editId = null, marketEditId = null;
+
+        document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
+
+        function openModal(id) { 
+            document.getElementById(id).classList.add('active'); 
+            if(id === 'fireModal') {
+                document.getElementById('fAge').value = fireSettings.currentAge;
+                document.getElementById('fRetire').value = fireSettings.retireAge;
+                document.getElementById('fExpense').value = fmt(fireSettings.monthlyExpense);
+                document.getElementById('fSave').value = fmt(fireSettings.monthlySave);
+                document.getElementById('fReturn').value = fireSettings.returnRate;
+                document.getElementById('fInflation').value = fireSettings.inflationRate;
+            }
+        }
+        function closeModals() { 
+            document.querySelectorAll('.modal').forEach(m => m.classList.remove('active')); 
+            editId = null; marketEditId = null;
+            document.querySelectorAll('.modal input').forEach(el => el.value='');
+        }
+
+        function switchTab(t) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-'+t).classList.add('active');
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                let active = btn.dataset.target === t;
+                if(active) {
+                    if(t !== 'transaksi') {
+                        btn.classList.replace('text-gray-400', t === 'fire' ? 'text-orange-500' : 'text-blue-600');
+                    }
+                    btn.classList.add('scale-110');
+                } else {
+                    if(btn.dataset.target !== 'transaksi') {
+                        btn.classList.replace('text-blue-600', 'text-gray-400');
+                        btn.classList.replace('text-orange-500', 'text-gray-400');
+                    }
+                    btn.classList.remove('scale-110');
+                }
+            });
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+
+        function changeMonth(dir) { filterDate.setMonth(filterDate.getMonth() + dir); updateSystem(); }
+
+        // --- TX ENGINE ---
+        function handleTxType() {
+            const type = document.getElementById('txType').value;
+            const ref = document.getElementById('txRef');
+            ref.innerHTML = '';
+            if (type === 'pengeluaran') { ref.classList.remove('hidden'); ref.innerHTML = `<option value="">-- Tanpa Anggaran --</option>` + budgets.map(b => `<option value="${b.id}">${b.name}</option>`).join(''); } 
+            else if (type === 'bayar_bill') { ref.classList.remove('hidden'); ref.innerHTML = `<option value="">-- Pilih Tagihan --</option>` + bills.map(b => `<option value="${b.id}">${b.name}</option>`).join(''); } 
+            else if (type.includes('invest')) { ref.classList.remove('hidden'); ref.innerHTML = `<option value="">-- Pilih Aset --</option>` + invests.map(i => `<option value="${i.id}">${i.name}</option>`).join(''); } 
+            else if (type === 'bayar_utang') { ref.classList.remove('hidden'); ref.innerHTML = `<option value="">-- Pilih Utang --</option>` + utangs.map(u => `<option value="${u.id}">${u.name}</option>`).join(''); } 
+            else { ref.classList.add('hidden'); }
+        }
+
+        document.getElementById('txForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const tx = {
+                id: txEditId || genId(),
+                date: document.getElementById('txDate').value,
+                desc: document.getElementById('txDesc').value,
+                amount: parseRaw(document.getElementById('txAmount').value),
+                type: document.getElementById('txType').value,
+                accId: document.getElementById('txAkun').value,
+                refId: document.getElementById('txRef').value
+            };
+            if(txEditId) txs[txs.findIndex(t=>t.id===txEditId)] = tx; else txs.push(tx);
+            cancelTx(); updateSystem();
+        });
+
+        // --- CRUD ---
+        function saveAkun() { let name=document.getElementById('aName').value, type=document.getElementById('aType').value, bal=parseRaw(document.getElementById('aBal').value); if(editId) { let x=akuns.find(i=>i.id===editId); x.name=name; x.type=type; x.init=bal; } else akuns.push({id:genId(), name, type, init:bal}); closeModals(); updateSystem(); }
+        function saveInvest() { let name=document.getElementById('iName').value, type=document.getElementById('iType').value, modal=parseRaw(document.getElementById('iModal').value), cur=parseRaw(document.getElementById('iCurrent').value); if(editId) { let x=invests.find(i=>i.id===editId); x.name=name; x.type=type; x.initModal=modal; x.initCur=cur; } else invests.push({id:genId(), name, type, initModal:modal, initCur:cur}); closeModals(); updateSystem(); }
+        function saveBudget() { let name=document.getElementById('bName').value, limit=parseRaw(document.getElementById('bLimit').value); if(editId) { let x=budgets.find(i=>i.id===editId); x.name=name; x.limit=limit; } else budgets.push({id:genId(), name, limit}); closeModals(); updateSystem(); }
+        function saveBill() { let name=document.getElementById('blName').value, amt=parseRaw(document.getElementById('blAmount').value), note=document.getElementById('blNote').value; if(editId) { let x=bills.find(i=>i.id===editId); x.name=name; x.base_amount=amt; x.note=note; } else bills.push({id:genId(), name, base_amount:amt, note}); closeModals(); updateSystem(); }
+        function saveUtang() { let name=document.getElementById('uName').value, init=parseRaw(document.getElementById('uAmount').value); if(editId) { let x=utangs.find(i=>i.id===editId); x.name=name; x.init=init; } else utangs.push({id:genId(), name, init}); closeModals(); updateSystem(); }
+        function saveMarket() { invests.find(i=>i.id===marketEditId).initCur = parseRaw(document.getElementById('mCurrent').value); closeModals(); updateSystem(); }
+        
+        function saveFireSettings() {
+            fireSettings = {
+                currentAge: Number(document.getElementById('fAge').value),
+                retireAge: Number(document.getElementById('fRetire').value),
+                monthlyExpense: parseRaw(document.getElementById('fExpense').value),
+                monthlySave: parseRaw(document.getElementById('fSave').value),
+                returnRate: Number(document.getElementById('fReturn').value),
+                inflationRate: Number(document.getElementById('fInflation').value)
+            };
+            closeModals(); updateSystem();
+        }
+
+        function editItem(cat, id) {
+            editId = id;
+            if(cat==='akun'){ let x=akuns.find(i=>i.id===id); document.getElementById('aName').value=x.name; document.getElementById('aType').value=x.type; document.getElementById('aBal').value=fmt(x.init); openModal('akunModal');}
+            if(cat==='invest'){ let x=invests.find(i=>i.id===id); document.getElementById('iName').value=x.name; document.getElementById('iType').value=x.type; document.getElementById('iModal').value=fmt(x.initModal); document.getElementById('iCurrent').value=fmt(x.initCur); openModal('investModal');}
+            if(cat==='budget'){ let x=budgets.find(i=>i.id===id); document.getElementById('bName').value=x.name; document.getElementById('bLimit').value=fmt(x.limit); openModal('budgetModal');}
+            if(cat==='bill'){ let x=bills.find(i=>i.id===id); document.getElementById('blName').value=x.name; document.getElementById('blAmount').value=fmt(x.base_amount); document.getElementById('blNote').value=x.note; openModal('billModal');}
+            if(cat==='utang'){ let x=utangs.find(i=>i.id===id); document.getElementById('uName').value=x.name; document.getElementById('uAmount').value=fmt(x.init); openModal('utangModal');}
+        }
+
+        function editTx(id) {
+            let t = txs.find(x => x.id === id); txEditId = t.id;
+            document.getElementById('txDate').value = t.date; document.getElementById('txDesc').value = t.desc;
+            document.getElementById('txAmount').value = fmt(t.amount); document.getElementById('txType').value = t.type;
+            handleTxType(); setTimeout(() => { document.getElementById('txAkun').value = t.accId; document.getElementById('txRef').value = t.refId || ''; }, 10);
+            document.getElementById('txEditBadge').classList.remove('hidden'); document.getElementById('btnCancelTx').classList.remove('hidden');
+            document.getElementById('btnSubmitTx').innerText = 'UPDATE'; switchTab('transaksi');
+        }
+
+        function cancelTx() { txEditId = null; document.getElementById('txForm').reset(); document.getElementById('txDate').value = new Date().toISOString().split('T')[0]; document.getElementById('txEditBadge').classList.add('hidden'); document.getElementById('btnCancelTx').classList.add('hidden'); document.getElementById('btnSubmitTx').innerText = 'SIMPAN'; handleTxType(); }
+        function deleteTx(id) { txs = txs.filter(t=>t.id!==id); updateSystem(); }
+        function openMarketModal(id) { marketEditId = id; document.getElementById('mNameDisp').innerText = invests.find(i=>i.id===id).name; openModal('marketModal'); }
+
+        // --- CORE SYSTEM & FIRE LOGIC ---
+        function updateSystem() {
+            localStorage.setItem('v14_txs', JSON.stringify(txs)); localStorage.setItem('v14_akuns', JSON.stringify(akuns));
+            localStorage.setItem('v14_invests', JSON.stringify(invests)); localStorage.setItem('v14_utangs', JSON.stringify(utangs));
+            localStorage.setItem('v14_budgets', JSON.stringify(budgets)); localStorage.setItem('v14_bills', JSON.stringify(bills));
+            localStorage.setItem('v14_fire', JSON.stringify(fireSettings));
+
+            document.getElementById('monthDisplay').innerText = `${months[filterDate.getMonth()]} ${filterDate.getFullYear()}`;
+            document.getElementById('txAkun').innerHTML = `<option value="">-- Pilih Akun --</option>` + akuns.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+
+            let fM = filterDate.getMonth(), fY = filterDate.getFullYear();
+            let bal = {}, modal = {}, curr = {}, debt = {}, spent = {}, paidBill = {};
+            akuns.forEach(a=>bal[a.id]=a.init); invests.forEach(i=>{modal[i.id]=i.initModal; curr[i.id]=i.initCur;});
+            utangs.forEach(u=>debt[u.id]=u.init); budgets.forEach(b=>spent[b.id]=0); bills.forEach(b=>paidBill[b.id]=0);
+            
+            let mIn = 0, mOut = 0;
+            txs.forEach(t => {
+                let d = new Date(t.date); let isM = (d.getMonth()===fM && d.getFullYear()===fY);
+                if(t.type==='pemasukan'){ bal[t.accId]+=t.amount; if(isM)mIn+=t.amount; }
+                else if(t.type==='pengeluaran'){ bal[t.accId]-=t.amount; if(isM){mOut+=t.amount; if(t.refId)spent[t.refId]+=t.amount;} }
+                else if(t.type==='bayar_bill'){ bal[t.accId]-=t.amount; if(t.refId)paidBill[t.refId]+=t.amount; if(isM)mOut+=t.amount;}
+                else if(t.type==='bayar_utang'){ bal[t.accId]-=t.amount; if(t.refId)debt[t.refId]-=t.amount; if(isM)mOut+=t.amount;}
+                else if(t.type==='beli_invest'){ bal[t.accId]-=t.amount; if(t.refId){modal[t.refId]+=t.amount; curr[t.refId]+=t.amount;}}
+                else if(t.type==='jual_invest'){ bal[t.accId]+=t.amount; if(t.refId){modal[t.refId]-=t.amount; curr[t.refId]-=t.amount;}}
+            });
+
+            // Headers
+            let totalNetWorth = Object.values(bal).reduce((a,b)=>a+b,0) + Object.values(curr).reduce((a,b)=>a+b,0) - Object.values(debt).reduce((a,b)=>a+b,0);
+            document.getElementById('nwDisplay').innerText = `Rp ${fmt(totalNetWorth)}`;
+            document.getElementById('inSummary').innerText = `Rp ${fmt(mIn)}`; document.getElementById('outSummary').innerText = `Rp ${fmt(mOut)}`;
+
+            // Render Lists
+            const elA = document.getElementById('akunList'); elA.innerHTML = '';
+            akuns.forEach(a => elA.innerHTML += `<div class="ios-glass p-4 rounded-2xl flex justify-between items-center mb-2"><span class="font-bold text-sm text-gray-800"><i class="fas fa-wallet mr-2 text-blue-500"></i>${a.name}</span><div class="flex items-center gap-3"><b class="text-gray-900">Rp ${fmt(bal[a.id]||0)}</b><button onclick="editItem('akun','${a.id}')" class="btn-press text-blue-500"><i class="fas fa-pen text-xs"></i></button><button onclick="akuns.splice(${akuns.indexOf(a)},1);updateSystem()" class="btn-press text-red-400"><i class="fas fa-trash text-xs"></i></button></div></div>`);
+
+            const elI = document.getElementById('investList'); elI.innerHTML = '';
+            invests.forEach(i => {
+                let gain = curr[i.id]-modal[i.id];
+                elI.innerHTML += `<div class="ios-glass p-5 rounded-[1.5rem] mb-3 border border-white"><div class="flex justify-between font-bold text-[15px] text-gray-800 mb-2"><span>${i.name}</span><span>Rp ${fmt(curr[i.id]||0)}</span></div><div class="flex justify-between items-center"><div class="text-[11px] ${gain>=0?'text-green-600 bg-green-100':'text-red-500 bg-red-100'} px-2 py-0.5 rounded-lg font-bold">${gain>=0?'+':''}Rp ${fmt(gain)}</div><div class="flex gap-4"><button onclick="openMarketModal('${i.id}')" class="btn-press text-blue-500"><i class="fas fa-sync text-sm"></i></button><button onclick="editItem('invest','${i.id}')" class="btn-press text-gray-500"><i class="fas fa-pen text-sm"></i></button><button onclick="invests.splice(${invests.indexOf(i)},1);updateSystem()" class="btn-press text-red-400"><i class="fas fa-trash text-sm"></i></button></div></div></div>`;
+            });
+
+            const elT = document.getElementById('txList'); elT.innerHTML = '';
+            txs.filter(t=>new Date(t.date).getMonth()===fM && new Date(t.date).getFullYear()===fY).sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(t=>{
+                let sign = (t.type==='pemasukan' || t.type==='jual_invest') ? '+' : '-'; let col = (t.type==='pemasukan' || t.type==='jual_invest') ? 'text-green-600' : 'text-gray-800';
+                elT.innerHTML += `<li class="ios-glass p-4 rounded-[1.5rem] flex justify-between items-center mb-2"><div><p class="font-bold text-[13px] text-gray-800">${t.desc}</p><p class="text-[9px] text-gray-500 uppercase mt-0.5">${new Date(t.date).getDate()} ${months[new Date(t.date).getMonth()].substring(0,3)} • ${t.type.replace('_',' ')}</p></div><div class="text-right flex items-center gap-3"><p class="font-bold text-[14px] ${col}">${sign}Rp ${fmt(t.amount)}</p><div class="flex flex-col gap-2 border-l border-gray-200 pl-3 ml-1"><button onclick="editTx('${t.id}')" class="btn-press text-blue-500 leading-none"><i class="fas fa-pen text-[10px]"></i></button><button onclick="deleteTx('${t.id}')" class="btn-press text-red-400 leading-none"><i class="fas fa-trash text-[10px]"></i></button></div></div></li>`;
+            });
+
+            const elB = document.getElementById('budgetList'); elB.innerHTML = '';
+            budgets.forEach(b => {
+                let p = Math.min((spent[b.id]/b.limit)*100, 100);
+                elB.innerHTML += `<div class="ios-glass p-5 rounded-[1.5rem] mb-3 border border-white"><div class="flex justify-between text-[13px] text-gray-800 font-bold mb-3"><span>${b.name}</span><span>Rp ${fmt(spent[b.id])} / Rp ${fmt(b.limit)}</span></div><div class="w-full bg-white/60 h-2 rounded-full overflow-hidden shadow-inner mb-3"><div class="${p>85?'bg-red-500':'bg-blue-500'} h-full transition-all duration-300" style="width:${p}%"></div></div><div class="flex justify-end gap-4"><button onclick="editItem('budget','${b.id}')" class="btn-press text-gray-500"><i class="fas fa-pen text-sm"></i></button><button onclick="budgets.splice(${budgets.indexOf(b)},1);updateSystem()" class="btn-press text-red-400"><i class="fas fa-trash text-sm"></i></button></div></div>`;
+            });
+
+            const elBL = document.getElementById('billList'); elBL.innerHTML = '';
+            bills.forEach(b => {
+                let sisa = b.base_amount - (paidBill[b.id]||0); if(sisa<0)sisa=0;
+                elBL.innerHTML += `<div class="ios-glass p-4 rounded-2xl mb-3 border border-white flex justify-between items-center"><div class="flex flex-col"><span class="text-[13px] font-bold text-gray-800">${b.name} ${sisa===0?'<small class="text-green-500 ml-2">LUNAS</small>':''}</span><small class="text-[10px] text-gray-400 uppercase">${b.note}</small></div><div class="flex items-center gap-3"><span class="text-xs font-bold ${sisa===0?'text-gray-400':'text-emerald-600'}">Rp ${fmt(sisa)}</span><button onclick="editItem('bill','${b.id}')" class="btn-press text-gray-500"><i class="fas fa-pen text-xs"></i></button><button onclick="bills.splice(${bills.indexOf(b)},1);updateSystem()" class="btn-press text-red-400"><i class="fas fa-trash text-xs"></i></button></div></div>`;
+            });
+
+            const elU = document.getElementById('utangList'); elU.innerHTML = '';
+            utangs.forEach(u => elU.innerHTML += `<li class="ios-glass p-4 rounded-2xl flex justify-between items-center mb-2"><span class="text-[14px] font-bold text-gray-800">${u.name}</span><div class="flex items-center gap-4"><b class="text-red-500 text-[14px]">Rp ${fmt(debt[u.id]||0)}</b><button onclick="editItem('utang','${u.id}')" class="btn-press text-gray-500"><i class="fas fa-pen text-[12px]"></i></button><button onclick="utangs.splice(${utangs.indexOf(u)},1);updateSystem()" class="btn-press text-red-400"><i class="fas fa-trash text-[12px]"></i></button></div></li>`);
+
+            renderChart(bal, curr, debt);
+            renderFire(totalNetWorth);
+        }
+
+        function renderChart(bal, curr, debt) {
+            if(chartAlloc) chartAlloc.destroy();
+            let b = Object.values(bal).reduce((a,b)=>a+b,0), c = Object.values(curr).reduce((a,b)=>a+b,0), d = Object.values(debt).reduce((a,b)=>a+b,0);
+            chartAlloc = new Chart(document.getElementById('allocChart').getContext('2d'), { type: 'doughnut', data: { labels: ['Kas', 'Aset', 'Utang'], datasets: [{ data: [b, c, d], backgroundColor: ['#007aff', '#5856d6', '#ff3b30'], borderWidth: 2, borderColor: '#ffffff' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, usePointStyle: true, font: {size: 11, weight:'bold'} } } } } });
+        }
+
+        function renderFire(totalNetWorth) {
+            let years = fireSettings.retireAge - fireSettings.currentAge;
+            if (years <= 0) years = 1;
+
+            // Target (4% Rule with inflation)
+            let futureAnnualExpense = (fireSettings.monthlyExpense * 12) * Math.pow(1 + (fireSettings.inflationRate/100), years);
+            let targetFIRE = futureAnnualExpense * 25;
+
+            // Projection
+            let labels = [];
+            let projectedData = [];
+            let currentBalance = totalNetWorth; // Use actual Net Worth as starting principal
+            let annualSave = fireSettings.monthlySave * 12;
+            let r = fireSettings.returnRate / 100;
+
+            for(let i = 0; i <= years; i++) {
+                labels.push(fireSettings.currentAge + i);
+                projectedData.push(currentBalance);
+                currentBalance = currentBalance * (1 + r) + annualSave;
+            }
+
+            let finalBalance = projectedData[projectedData.length - 1];
+            
+            document.getElementById('fireTargetDisp').innerText = `Rp ${fmt(targetFIRE)}`;
+            document.getElementById('fireProjectedDisp').innerText = `Rp ${fmt(finalBalance)}`;
+            document.getElementById('fireRetireAgeDisp').innerText = fireSettings.retireAge;
+
+            let statusEl = document.getElementById('fireStatus');
+            if (finalBalance >= targetFIRE) {
+                statusEl.innerText = "ON TRACK";
+                statusEl.className = "text-[10px] font-bold px-2 py-1 rounded-lg bg-green-100 text-green-600";
+            } else {
+                statusEl.innerText = "DEFICIT";
+                statusEl.className = "text-[10px] font-bold px-2 py-1 rounded-lg bg-red-100 text-red-500";
+            }
+
+            if(chartFire) chartFire.destroy();
+            chartFire = new Chart(document.getElementById('fireChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Proyeksi Saldo (Rp)',
+                            data: projectedData,
+                            borderColor: '#007aff',
+                            backgroundColor: 'rgba(0, 122, 255, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            borderWidth: 3
+                        },
+                        {
+                            label: 'Target FIRE',
+                            data: Array(years+1).fill(targetFIRE),
+                            borderColor: '#ff9500',
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: {size: 10, family: 'Inter'} } } },
+                    scales: { 
+                        y: { display: false }, 
+                        x: { grid: { display: false }, ticks: { font: {size: 10, family: 'Inter'} } } 
+                    }
+                }
+            });
+        }
+
+        updateSystem();
+        handleTxType();
+    </script>
+</body>
+</html>
